@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>หมีน้อย 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffe9a8; --bg2:#ffd0b8; --ink:#4a2c1a; --chip:#fff7e0;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#2b2150; --bg2:#4a2d5e; --ink:#fff1d6; --chip:#3a2d66;}
+}
+:root[data-theme="dark"]{--bg:#2b2150; --bg2:#4a2d5e; --ink:#fff1d6; --chip:#3a2d66;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:linear-gradient(170deg,var(--bg),var(--bg2));color:var(--ink);
+  font-family:"Mali","Noto Sans Thai",system-ui,sans-serif;overflow:hidden;touch-action:none}
+#stage{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%}
+.title{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 18px);text-align:center;pointer-events:none}
+.title h1{margin:0;font-size:1.6rem;font-weight:700}
+.title p{margin:4px 0 0;font-size:.95rem;opacity:.8}
+.bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);display:flex;gap:10px;justify-content:center}
+button{font:inherit;font-weight:700;color:var(--ink);background:var(--chip);border:2px solid var(--ink);
+  border-radius:999px;padding:10px 18px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+button:active{transform:translateY(2px)}
+button:disabled{opacity:.4;cursor:default}
+.bubble{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);width:min(92vw,460px);box-sizing:border-box;background:var(--chip);border:2px solid var(--ink);border-radius:22px;padding:14px 18px;font-size:1.05rem;line-height:1.6;min-height:6.8em}
+.count{align-self:center;font-size:.9rem;opacity:.8;min-width:3em;text-align:center}
+#vid{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0}
+body.cam #vid{display:block}
+body.cam{background:#000}
+#stage{z-index:1}
+.title,.bubble,.bar,.camBtn{z-index:2}
+body.cam .title h1,body.cam .title p{display:inline-block;background:var(--chip);padding:4px 16px;border-radius:999px}
+.camBtn{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 100px);font-size:.9rem;padding:6px 16px}
+</style>
+</head>
+<body>
+<video id="vid" autoplay playsinline muted></video>
+<div id="stage"></div>
+<div class="title"><h1>เครื่องปั้นดินเผาบ้านทุ่งหล่ม</h1><p>หมีน้อยมาเล่าเรื่องให้ฟัง</p></div>
+<button class="camBtn" id="camBtn">เปิดกล้อง</button>
+<div class="bubble" id="bubble" aria-live="polite"></div>
+<div class="bar"><button id="prev">ย้อนกลับ</button><span class="count" id="count"></span><button id="next">ต่อไป</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+var stage=document.getElementById('stage');
+var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+stage.appendChild(renderer.domElement);
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(35,1,0.1,100);
+camera.position.set(0,1.2,9);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0xd9a066,0.9));
+var sun=new THREE.DirectionalLight(0xffffff,0.8);sun.position.set(4,6,5);scene.add(sun);
+
+function mat(c){return new THREE.MeshStandardMaterial({color:c,roughness:0.75,metalness:0});}
+var fur=mat(0xb86f3c), light=mat(0xf0c896), dark=mat(0x2a1a10), pink=mat(0xff8fa3), white=mat(0xffffff);
+
+function sph(r,m,x,y,z,sx,sy,sz){
+  var s=new THREE.Mesh(new THREE.SphereGeometry(r,32,24),m);
+  s.position.set(x,y,z);s.scale.set(sx||1,sy||1,sz||1);return s;
+}
+
+var bear=new THREE.Group();scene.add(bear);
+var body=sph(1.3,fur,0,-0.9,0,1,1.05,0.9);bear.add(body);
+bear.add(sph(0.85,light,0,-0.85,0.75,1,1.05,0.5));
+
+var head=new THREE.Group();head.position.set(0,1.0,0);bear.add(head);
+head.add(sph(1.15,fur,0,0,0,1.08,1,1));
+head.add(sph(0.38,fur,-0.95,0.95,0,1,1,0.6));
+head.add(sph(0.38,fur,0.95,0.95,0,1,1,0.6));
+head.add(sph(0.2,pink,-0.95,0.95,0.2,1,1,0.5));
+head.add(sph(0.2,pink,0.95,0.95,0.2,1,1,0.5));
+head.add(sph(0.5,light,0,-0.3,0.95,1.1,0.85,0.75));
+head.add(sph(0.14,dark,0,-0.08,1.4,1.2,0.9,0.9));
+var eyeL=sph(0.13,dark,-0.4,0.22,1.0,1,1.2,0.6),eyeR=sph(0.13,dark,0.4,0.22,1.0,1,1.2,0.6);
+head.add(eyeL);head.add(eyeR);
+head.add(sph(0.04,white,-0.36,0.28,1.08));head.add(sph(0.04,white,0.44,0.28,1.08));
+head.add(sph(0.14,pink,-0.75,-0.15,0.85,1,0.7,0.4));
+head.add(sph(0.14,pink,0.75,-0.15,0.85,1,0.7,0.4));
+var smile=new THREE.Mesh(new THREE.TorusGeometry(0.2,0.025,8,24,Math.PI),dark);
+smile.position.set(0,-0.32,1.38);smile.rotation.z=Math.PI;head.add(smile);
+
+function limb(x,y,z,m,s){var g=new THREE.Group();g.position.set(x,y,z);g.add(sph(s,m,0,-0.35,0,1,1.6,1));return g;}
+var armL=limb(-1.35,-0.2,0.1,fur,0.38), armR=limb(1.35,-0.2,0.1,fur,0.38);
+armL.rotation.z=0.45;armR.rotation.z=-0.45;bear.add(armL);bear.add(armR);
+bear.add(sph(0.5,fur,-0.65,-2.05,0.5,1,0.8,1.2));
+bear.add(sph(0.5,fur,0.65,-2.05,0.5,1,0.8,1.2));
+bear.add(sph(0.26,light,-0.65,-2.05,1.05,1,0.8,0.5));
+bear.add(sph(0.26,light,0.65,-2.05,1.05,1,0.8,0.5));
+bear.add(sph(0.3,fur,0,-1.9,-1.05));
+
+var shadow=new THREE.Mesh(new THREE.CircleGeometry(1.7,40),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.18}));
+shadow.rotation.x=-Math.PI/2;shadow.position.y=-2.5;scene.add(shadow);
+bear.position.y=0;
+
+var rotY=0.4,velY=0,drag=false,lastX=0,t=0,hop=0,waveT=0,spinT=0,moved=0;
+function size(){var w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h);camera.aspect=w/h;
+  camera.position.z=w/h<0.8?11.5:9;camera.updateProjectionMatrix();}
+window.addEventListener('resize',size);size();
+
+var el=renderer.domElement;
+el.addEventListener('pointerdown',function(e){drag=true;lastX=e.clientX;moved=0;velY=0;el.setPointerCapture(e.pointerId);});
+el.addEventListener('pointermove',function(e){if(!drag)return;var dx=e.clientX-lastX;lastX=e.clientX;moved+=Math.abs(dx);rotY+=dx*0.012;velY=dx*0.012;});
+el.addEventListener('pointerup',function(){drag=false;if(moved<6)hop=1;});
+var chapters=[
+{t:'สวัสดี! หมีน้อยพามาที่บ้านทุ่งหล่ม หมู่ 6 ต.ฝายกวาง อ.เชียงคำ จ.พะเยา แหล่งทำเครื่องปั้นดินเผาเตาโบราณ',a:'wave'},
+{t:'งานปั้นที่นี่เป็นภูมิปัญญาที่ส่งต่อกันมารุ่นสู่รุ่น ทุกชิ้นเกิดจากความตั้งใจและใส่ใจในทุกรายละเอียด',a:''},
+{t:'จุดเด่นคือการเผาด้วยเตาโบราณ ทำให้เนื้อดินแข็งแรงทนทาน มีสีสันและลวดลายเป็นธรรมชาติ ไม่ซ้ำใคร',a:'spin'},
+{t:'มีหม้อดิน หม้อแกง หม้อน้ำ หม้อชาบู กระถาง โอ่ง และบ้านแมว เพิ่มความหอมอร่อยแบบดั้งเดิมให้มื้ออาหาร',a:'hop'},
+{t:'ยังมีแจกันและของตกแต่งบ้านดีไซน์คลาสสิก กับเตาอั้งโล่ดินเผาที่ทนความร้อนสูง คุมไฟง่าย เริ่มต้นเพียงหลักสิบ',a:''},
+{t:'ซื้อของดีกลับบ้าน ก็ช่วยสนับสนุนรายได้ของกลุ่มแม่บ้านและชุมชนด้วย แวะมาได้ที่ร้านเยื้องหน้าวัดบ้านทุ่งหล่มนะ',a:'wave'}
+];
+var ci=0,full=[],shown=0,tc=0,talking=false;
+var bub=document.getElementById('bubble'),nextB=document.getElementById('next'),prevB=document.getElementById('prev'),cnt=document.getElementById('count');
+function seg(s){try{return Array.from(new Intl.Segmenter('th',{granularity:'grapheme'}).segment(s),function(x){return x.segment;});}catch(e){return Array.from(s);}}
+function render(){bub.textContent=full.slice(0,shown).join('');}
+function show(i){ci=i;full=seg(chapters[i].t);tc=0;
+  var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  shown=rm?full.length:0;talking=!rm;
+  var a=chapters[i].a;if(a==='wave')waveT=1;if(a==='spin')spinT=1;if(a==='hop')hop=1;
+  prevB.disabled=(i===0);nextB.textContent=(i===chapters.length-1)?'เล่าใหม่':'ต่อไป';
+  cnt.textContent=(i+1)+'/'+chapters.length;render();}
+nextB.onclick=function(){if(talking){shown=full.length;talking=false;render();return;}show(ci>=chapters.length-1?0:ci+1);};
+prevB.onclick=function(){if(ci>0)show(ci-1);};
+var camB=document.getElementById('camBtn'),vid=document.getElementById('vid'),stream=null;
+camB.onclick=function(){
+  if(stream){stream.getTracks().forEach(function(tr){tr.stop();});stream=null;vid.srcObject=null;document.body.classList.remove('cam');camB.textContent='เปิดกล้อง';return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camB.textContent='เครื่องนี้เปิดกล้องไม่ได้';return;}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false}).then(function(s){
+    stream=s;vid.srcObject=s;var p=vid.play();if(p&&p.catch)p.catch(function(){});
+    document.body.classList.add('cam');camB.textContent='ปิดกล้อง';
+  }).catch(function(){camB.textContent='เปิดกล้องไม่ได้ กดเพื่อลองใหม่';});
+};
+setTimeout(function(){camB.click();},400);
+
+var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var last=performance.now(),blink=0;
+function tick(now){
+  var dt=Math.min((now-last)/1000,0.05);last=now;t+=dt;
+  if(!drag){rotY+=velY;velY*=0.92;if(Math.abs(velY)<0.002&&!reduce)rotY+=dt*0.25;}
+  if(spinT>0){rotY+=dt*Math.PI*2*1.6;spinT-=dt/1.25;}
+  bear.rotation.y=rotY;
+  var idle=reduce?0:Math.sin(t*2)*0.04;
+  var jump=0;if(hop>0){jump=Math.sin((1-hop)*Math.PI)*1.1;hop-=dt*1.6;}
+  bear.position.y=jump+idle;
+  shadow.scale.setScalar(1-jump*0.2);
+  head.rotation.z=reduce?0:Math.sin(t*1.3)*0.06;
+  if(talking){tc+=dt*14;var n=Math.min(full.length,Math.floor(tc));if(n!==shown){shown=n;render();}if(shown>=full.length)talking=false;}
+  smile.scale.y=talking?1+Math.abs(Math.sin(t*14))*1.3:1;
+  if(waveT>0){armR.rotation.z=-2.4+Math.sin(t*14)*0.35;waveT-=dt/1.6;}
+  else{armR.rotation.z+=(-0.45-armR.rotation.z)*0.15;}
+  blink-=dt;var b=(blink<0&&blink>-0.12)?0.1:1;if(blink<-0.12)blink=2+Math.random()*3;
+  eyeL.scale.y=eyeR.scale.y=1.2*b;
+  renderer.render(scene,camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+show(0);
+})();
+</script>
+</body>
+</html>
